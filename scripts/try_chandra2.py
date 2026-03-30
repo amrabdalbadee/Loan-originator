@@ -1,6 +1,13 @@
 import asyncio
 import sys
 import os
+from pathlib import Path
+
+# Add project root to sys.path to resolve 'src' imports
+project_root = str(Path(__file__).resolve().parent.parent)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 import json
 from src.ai.ocr import OCREngine
 

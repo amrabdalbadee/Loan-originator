@@ -40,28 +40,18 @@ class OCREngine:
                     image, self.model, self.processor, self.device, prompt="USE_NATIVE"
                 )
                 
-                # In a real scenario, we'd have a parser here to extract fields.
-                # For now, we return the raw text and a status.
                 return {
                     "raw_text": raw_result,
-                    "fields": {
-                        # Placeholder extraction logic
-                        "full_name": {"value": "Extracted from OCR", "confidence": 0.90},
-                    },
+                    "fields": {},  # Empty fields; populate via downstream parsers
                     "status": "success" if "[ERROR]" not in raw_result else "error",
                     "model_version": "Chandra-OCR-2"
                 }
             
-            # Default placeholder result
+            # Default error if model logic is not defined
             return {
-              "fields": {
-                  "full_name": {"value": "John Doe", "confidence": 0.95},
-                  "nid_number": {"value": "12345678901234", "confidence": 0.98},
-                  "dob": {"value": "1990-01-01", "confidence": 0.99},
-                  "expiry_date": {"value": "2030-01-01", "confidence": 0.99},
-              },
-              "status": "success",
-              "model_version": "v1.0.0"
+                "status": "error",
+                "message": f"Extraction logic for model {self.model_name} is not implemented.",
+                "model_version": self.model_name
             }
         except Exception as e:
             return {"status": "error", "message": str(e)}

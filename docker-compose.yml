@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: loan_originator
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
+
+  worker:
+    build: .
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+    command: python src/main.py --worker
+
+volumes:
+  postgres_data:

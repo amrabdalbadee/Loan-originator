@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Models & AI
+*.weights
+*.h5
+*.onnx
+
+# Data & Storage
+data/
+uploads/
+logs/
+
+# IDEs
+.vscode/
+.idea/
+.DS_Store

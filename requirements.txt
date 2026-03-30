@@ -1,0 +1,40 @@
+# API & Schema
+fastapi
+uvicorn[standard]
+pydantic>=2.0
+pydantic-settings
+python-multipart
+python-jose[cryptography]
+passlib[bcrypt]
+
+# AI/ML & OCR
+torch
+transformers
+qwen-vl-utils
+layoutlmv3
+chandra-ocr>=0.2.0
+beautifulsoup4
+opencv-python-headless
+pillow
+numpy
+
+# Database & Storage
+sqlalchemy[asyncio]
+asyncpg
+alembic
+boto3
+
+# Orchestration & Queue
+rabbitmq-server
+# or
+prefect
+# or
+apache-airflow
+
+# Utils
+reportlab
+pypdf2
+requests
+httpx
+python-docx
+-e .

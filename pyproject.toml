@@ -1,0 +1,30 @@
+[project]
+name = "loan-originator"
+version = "0.1.0"
+description = "AI-powered loan document verification and decision system."
+authors = [{ name = "System Design Team" }]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "pydantic>=2.0",
+    "sqlalchemy[asyncio]",
+    "asyncpg",
+    "transformers",
+    "torch",
+    "boto3",
+    "reportlab"
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.mypy]
+packages = ["src"]
+ignore_missing_imports = true

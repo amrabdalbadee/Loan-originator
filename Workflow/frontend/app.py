@@ -45,6 +45,15 @@ with st.form("loan_form"):
             [12, 24, 36, 48, 60, 72, 84]
         )
         
+    st.markdown("---")
+    st.subheader("📄 Document Upload")
+    
+    col9, col10 = st.columns(2)
+    with col9:
+        income_proof_file = st.file_uploader("Income Proof (إثبات دخل)", type=["pdf"])
+    with col10:
+        utility_bill_file = st.file_uploader("Utility Bill (إيصال مرافق)", type=["pdf"])
+        
     # The submit button
     submitted = st.form_submit_button("Generate JSON Payload", type="primary", use_container_width=True)
 
@@ -64,6 +73,10 @@ if submitted:
         "loan_details": {
             "requested_amount_egp": loan_amount,
             "duration_months": loan_duration
+        },
+        "documents": {
+            "income_proof": income_proof_file.name if income_proof_file else None,
+            "utility_bill": utility_bill_file.name if utility_bill_file else None
         }
     }
     

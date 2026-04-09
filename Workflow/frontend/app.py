@@ -80,7 +80,55 @@ if submitted:
         }
     }
     
-    st.success("Form submitted successfully! Here is your JSON payload:")
+    import tempfile
+    import os
+    import sys
+    import streamlit.components.v1 as components
     
-    # Display the JSON output nicely
-    st.json(data)
+    # Add Workflow folder to path to import AI_logic
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    parent_dir = os.path.dirname(current_dir)
+    if parent_dir not in sys.path:
+        sys.path.append(parent_dir)
+        
+    try:
+        import AI_logic
+    except ImportError:
+        st.error("Failed to import AI_logic.")
+        st.stop()
+        
+    pdf_paths = []
+    
+    if income_proof_file or utility_bill_file:
+        with st.spinner("Processing Documents and Evaluating Application..."):
+            with tempfile.TemporaryDirectory() as temp_dir:
+                if income_proof_file:
+                    ip_path = os.path.join(temp_dir, income_proof_file.name)
+                    with open(ip_path, "wb") as f:
+                        f.write(income_proof_file.getbuffer())
+                    pdf_paths.append(ip_path)
+                    
+                if utility_bill_file:
+                    ub_path = os.path.join(temp_dir, utility_bill_file.name)
+                    with open(ub_path, "wb") as f:
+                        f.write(utility_bill_file.getbuffer())
+                    pdf_paths.append(ub_path)
+                    
+                result = AI_logic.evaluate_loan_application(data, pdf_paths)
+                
+            st.success("Form submitted and evaluated successfully!")
+            st.subheader("Structured Evaluation")
+            st.json(result["structured_decision"])
+            
+            report_path = result.get("report_path")
+            if report_path and os.path.exists(report_path):
+                st.markdown(f"**HTML Credit Report Saved At:** `{report_path}`")
+                try:
+                    with open(report_path, "r", encoding="utf-8") as f:
+                        html_content = f.read()
+                    components.html(html_content, height=600, scrolling=True)
+                except Exception as e:
+                    st.error(f"Could not load HTML report: {e}")
+    else:
+        st.warning("Please upload at least one PDF document to evaluate.")
+        st.json(data)

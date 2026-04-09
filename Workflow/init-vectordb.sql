@@ -1,9 +1,19 @@
 -- Enable pgvector extension
 CREATE EXTENSION IF NOT EXISTS vector;
 
+-- Table to store user details (applicants)
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    full_name TEXT,
+    national_id TEXT UNIQUE,
+    phone TEXT,
+    email TEXT
+);
+
 -- Table to store PDF document metadata
 CREATE TABLE IF NOT EXISTS documents (
     id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     filename TEXT NOT NULL,
     total_pages INTEGER,
     total_chunks INTEGER,

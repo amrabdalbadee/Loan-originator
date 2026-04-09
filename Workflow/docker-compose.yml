@@ -1,0 +1,35 @@
+services:
+  pg_vector:
+    image: ankane/pgvector:latest
+    container_name: pgvector
+    restart: always
+    environment:
+      POSTGRES_USER: ${VECTOR_DB_USER:-rfi_user}
+      POSTGRES_PASSWORD: ${VECTOR_DB_PASSWORD:-rfi_user}
+      POSTGRES_DB: ${VECTOR_DB_NAME:-rfi_db}
+    ports:
+      - "5434:5432"
+    volumes:
+      - unified_db_data:/var/lib/postgresql/data
+      - ./init-vectordb.sql:/docker-entrypoint-initdb.d/01-init-vectordb.sql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${VECTOR_DB_USER:-rfi_user} -d ${VECTOR_DB_NAME:-rfi_db}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - pg_vector
+
+volumes:
+  unified_db_data:

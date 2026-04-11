@@ -12,7 +12,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-from extractor import EgyptianIDExtractor, PassportExtractor
+from Workflow.backend.id_extractor.extractor import EgyptianIDExtractor, PassportExtractor
 
 app = FastAPI(title="Identity Extraction Service")
 

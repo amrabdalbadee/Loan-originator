@@ -7,19 +7,102 @@ import os
 AI_SERVICE_INTERNAL_URL = os.getenv("AI_SERVICE_INTERNAL_URL", "http://ai_service:8000")
 # External URL: Used by your browser to open links (reports) in a new tab
 AI_SERVICE_EXTERNAL_URL = os.getenv("AI_SERVICE_EXTERNAL_URL", "http://localhost:8000")
+# ID Extractor URL
+ID_EXTRACTOR_URL = os.getenv("ID_EXTRACTOR_URL", "http://id_extractor_service:8002")
 
 st.set_page_config(page_title="NBE Loan Application", page_icon="🏦", layout="centered")
 st.title("🏦 NBE Loan Application Form")
 st.markdown("Please fill out the form below and upload the required documents.")
+
+if 'full_name' not in st.session_state:
+    st.session_state.full_name = ""
+if 'national_id' not in st.session_state:
+    st.session_state.national_id = ""
+
+st.subheader("🪪 Step 1: Identity Extraction (Optional)")
+st.markdown("Upload your National ID or Passport to automatically pre-fill your application.")
+
+doc_type = st.radio("Select Identity Document:", ["National ID", "Passport"], horizontal=True)
+
+if doc_type == "National ID":
+    id_col1, id_col2 = st.columns(2)
+    with id_col1:
+        id_front_file = st.file_uploader("Upload National ID (Front)", type=['jpg', 'jpeg', 'png'])
+    with id_col2:
+        id_back_file = st.file_uploader("Upload National ID (Back)", type=['jpg', 'jpeg', 'png'])
+    
+    if st.button("Extract ID Data"):
+        if id_front_file and id_back_file:
+            with st.spinner("Extracting..."):
+                try:
+                    files = [
+                        ("id_front", (id_front_file.name, id_front_file.getvalue(), id_front_file.type)),
+                        ("id_back", (id_back_file.name, id_back_file.getvalue(), id_back_file.type))
+                    ]
+                    data = {"doc_type": "National ID"}
+                    resp = requests.post(f"{ID_EXTRACTOR_URL}/extract", data=data, files=files)
+                    resp.raise_for_status()
+                    result = resp.json()
+                    
+                    if not result.get("is_valid", False):
+                        st.error(f"⚠️ Document appears to be expired! (Expiry: {result.get('expiry_date')})")
+                    else:
+                        st.success("✅ Document is valid.")
+                        
+                    if result.get("full_name_arabic"):
+                        st.session_state.full_name = result["full_name_arabic"]
+                    if result.get("national_id_number"):
+                        st.session_state.national_id = result["national_id_number"]
+                        
+                    if result.get("is_valid", False):
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"Error during extraction: {e}")
+        else:
+            st.warning("Please upload both front and back images.")
+
+else:
+    passport_file = st.file_uploader("Upload Passport Image", type=['jpg', 'jpeg', 'png'])
+    if st.button("Extract Passport Data"):
+        if passport_file:
+            with st.spinner("Extracting..."):
+                try:
+                    files = [
+                        ("passport", (passport_file.name, passport_file.getvalue(), passport_file.type))
+                    ]
+                    data = {"doc_type": "Passport"}
+                    resp = requests.post(f"{ID_EXTRACTOR_URL}/extract", data=data, files=files)
+                    resp.raise_for_status()
+                    result = resp.json()
+                    
+                    if not result.get("is_valid", False):
+                        st.error(f"⚠️ Document appears to be expired! (Expiry: {result.get('expiry_date')})")
+                    else:
+                        st.success("✅ Document is valid.")
+                        
+                    name = result.get("full_name_arabic") or result.get("full_name_latin")
+                    if name:
+                        st.session_state.full_name = name
+                    if result.get("national_id_number"):
+                        st.session_state.national_id = result["national_id_number"]
+                        
+                    if result.get("is_valid", False):
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"Error during extraction: {e}")
+        else:
+            st.warning("Please upload the passport image.")
+
+st.markdown("---")
 
 with st.form("loan_form"):
     st.subheader("👤 Personal Information")
 
     col1, col2 = st.columns(2)
     with col1:
-        full_name = st.text_input("Applicant Full Name", placeholder="e.g. Ahmed Mohamed Hassan")
+        full_name = st.text_input("Applicant Full Name", value=st.session_state.full_name, placeholder="e.g. Ahmed Mohamed Hassan")
     with col2:
-        national_id = st.text_input("National ID (14 digits)", max_chars=14, placeholder="29001011234567")
+        national_id = st.text_input("National ID (14 digits)", value=st.session_state.national_id, max_chars=14, placeholder="29001011234567")
 
     col3, col4 = st.columns(2)
     with col3:

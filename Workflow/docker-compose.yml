@@ -97,5 +97,25 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # ── ID Extractor Service ────────────────────────────────────────────────────
+  id_extractor_service:
+    build:
+      context: ..
+      dockerfile: Workflow/backend/id_extractor/Dockerfile
+    container_name: id_extractor_service
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Optional environment vars
+    ports:
+      - "8002:8002"
+    depends_on:
+      - ai_service
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 volumes:
   unified_db_data:

@@ -9,7 +9,9 @@ import os
 import sys
 import logging
 import tempfile
+import glob
 from typing import List
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from pydantic import BaseModel
@@ -25,7 +27,32 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Vector Service", version="1.0.0")
+
+# ── Lifespan (Startup/Shutdown Tasks) ─────────────────────────────────────────
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    On startup: Automatically scan and ingest any policy PDF files 
+    found in the local /app/policy folder.
+    """
+    policy_dir = "/app/policy"
+    if os.path.isdir(policy_dir):
+        logger.info(f"🚀 Vector Service starting up. Scanning {policy_dir} for policy PDFs...")
+        pdf_files = glob.glob(os.path.join(policy_dir, "*.pdf"))
+        
+        if not pdf_files:
+            logger.info("  No policy PDF files found.")
+        else:
+            for pdf_path in pdf_files:
+                pdf_vectorize.ingest_policy_document(pdf_path)
+    else:
+        logger.warning(f"  Policy directory not found at {policy_dir}. Auto-ingestion skipped.")
+    
+    yield
+    # Shutdown logic (if any) goes here
+
+
+app = FastAPI(title="Vector Service", version="1.0.0", lifespan=lifespan)
 
 
 # ── Models ────────────────────────────────────────────────────────────────────

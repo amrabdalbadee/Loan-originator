@@ -46,6 +46,8 @@ services:
       VECTOR_DB_PORT: "5432"
     ports:
       - "8001:8001"
+    volumes:
+      - ./policy:/app/policy:ro
     depends_on:
       pg_vector:
         condition: service_healthy
@@ -83,7 +85,8 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
-      AI_SERVICE_URL: http://localhost:8000
+      AI_SERVICE_INTERNAL_URL: http://ai_service:8000
+      AI_SERVICE_EXTERNAL_URL: http://localhost:8000
     ports:
       - "8501:8501"
     depends_on:

@@ -90,8 +90,8 @@ def generate_embedding(text: str) -> list[float] | None:
 
 
 # ── Storage ───────────────────────────────────────────────────────────────────
-def store_document(user_id: int, filename: str, total_pages: int, total_chunks: int) -> int:
-    """Insert a document metadata record linked to a user and return its doc_id."""
+def store_document(user_id: int | None, filename: str, total_pages: int, total_chunks: int) -> int:
+    """Insert a document metadata record (linked to a user or None for policy) and return its doc_id."""
     conn = get_conn()
     cur  = conn.cursor()
     cur.execute(
@@ -104,6 +104,48 @@ def store_document(user_id: int, filename: str, total_pages: int, total_chunks: 
     conn.close()
     logger.info(f"Stored document '{filename}' as doc_id={doc_id} for user_id={user_id}")
     return doc_id
+
+
+def ingest_policy_document(pdf_path: str):
+    """Full flow for indexing a policy PDF: Extract -> Chunk -> Check Exists -> Store with Embeddings."""
+    filename = os.path.basename(pdf_path)
+    
+    # 1. Check if already ingested (where user_id is NULL)
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM documents WHERE filename = %s AND user_id IS NULL", (filename,))
+    exists = cur.fetchone()
+    cur.close()
+    conn.close()
+    
+    if exists:
+        logger.info(f"Skipping ingestion: policy '{filename}' already exists in DB.")
+        return exists[0]
+
+    logger.info(f"New policy detected: {filename}. Starting ingestion...")
+    
+    # 2. Process
+    try:
+        pages = extract_text_from_pdf(pdf_path)
+        chunks = chunk_text(pages)
+        
+        if not chunks:
+            logger.warning(f"No text found in policy: {filename}")
+            return None
+            
+        total_pages = max((c["page_number"] for c in chunks), default=1)
+        
+        # 3. Store metadata
+        doc_id = store_document(None, filename, total_pages, len(chunks))
+        
+        # 4. Store with embeddings
+        store_policy_chunks(doc_id, chunks)
+        
+        logger.info(f"✅ Successfully indexed policy: {filename}")
+        return doc_id
+    except Exception as e:
+        logger.error(f"❌ Failed to index policy {filename}: {e}")
+        return None
 
 
 def store_chunks_no_embedding(doc_id: int, chunks: list[dict], table_name: str = "user_documents"):

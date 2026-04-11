@@ -3,7 +3,10 @@ import requests
 import json
 import os
 
-AI_SERVICE_URL = os.getenv("AI_SERVICE_URL", "http://localhost:8000")
+# Internal URL: Used by the Python server to talk to the AI service container
+AI_SERVICE_INTERNAL_URL = os.getenv("AI_SERVICE_INTERNAL_URL", "http://ai_service:8000")
+# External URL: Used by your browser to open links (reports) in a new tab
+AI_SERVICE_EXTERNAL_URL = os.getenv("AI_SERVICE_EXTERNAL_URL", "http://localhost:8000")
 
 st.set_page_config(page_title="NBE Loan Application", page_icon="🏦", layout="centered")
 st.title("🏦 NBE Loan Application Form")
@@ -80,10 +83,8 @@ if submitted:
 
     with st.spinner("⏳ Evaluating application... this may take a minute."):
         try:
-            # Build multipart request: form_data as JSON string + PDF files as byte streams
-            multipart_files = [("files", ("placeholder", b"", "application/pdf"))]  # default empty
-            actual_files    = []
-
+            # Build multipart request
+            actual_files = []
             if income_proof_file:
                 actual_files.append(
                     ("files", (income_proof_file.name, income_proof_file.getbuffer(), "application/pdf"))
@@ -93,52 +94,37 @@ if submitted:
                     ("files", (utility_bill_file.name, utility_bill_file.getbuffer(), "application/pdf"))
                 )
 
+            # Use INTERNAL URL for the API call
             response = requests.post(
-                f"{AI_SERVICE_URL}/evaluate",
+                f"{AI_SERVICE_INTERNAL_URL}/evaluate",
                 data={"form_data": json.dumps(form_data)},
-                files=actual_files if actual_files else multipart_files,
+                files=actual_files,
                 timeout=360,
             )
             response.raise_for_status()
             result = response.json()
 
         except requests.exceptions.ConnectionError:
-            st.error(f"❌ Could not connect to AI Service at `{AI_SERVICE_URL}`. Is it running?")
-            st.stop()
-        except requests.exceptions.Timeout:
-            st.error("❌ Request timed out — the AI Service took too long to respond.")
-            st.stop()
-        except requests.exceptions.HTTPError as e:
-            st.error(f"❌ AI Service returned an error: {e.response.text}")
+            st.error(f"❌ Could not connect to AI Service at `{AI_SERVICE_INTERNAL_URL}`. Is the container running?")
             st.stop()
         except Exception as e:
-            st.error(f"❌ Unexpected error: {e}")
+            st.error(f"❌ Error: {e}")
             st.stop()
 
     st.success("✅ Application evaluated successfully!")
 
     decision = result.get("structured_decision", {})
-    is_approved = decision.get("is_approved", False)
-
-    # ── Decision banner ───────────────────────────────────────────────────────
-    if is_approved:
-        st.success(f"**Decision: APPROVED** — Confidence: {decision.get('confidence_score')}%")
-    else:
-        st.error(f"**Decision: REJECTED** — Confidence: {decision.get('confidence_score')}%")
-
-    # ── Structured JSON output ────────────────────────────────────────────────
-    st.subheader("📋 Structured Evaluation")
+    st.subheader("📋 Evaluation Results")
     st.json(decision)
 
     # ── Open full HTML report in a new browser tab ────────────────────────────
     report_filename = result.get("report_filename")
     if report_filename:
-        report_url = f"{AI_SERVICE_URL}/report/{report_filename}"
+        # Use EXTERNAL URL for the browser link
+        report_url = f"{AI_SERVICE_EXTERNAL_URL}/report/{report_filename}"
         st.markdown("---")
-        st.subheader("📄 Full Credit Report")
         st.link_button(
             label="🔗 Open Full HTML Report in New Tab",
             url=report_url,
             use_container_width=True,
         )
-        st.caption(f"Report URL: `{report_url}`")

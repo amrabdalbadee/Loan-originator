@@ -120,7 +120,7 @@ You MUST reply with ONLY a strictly valid JSON object matching this exact struct
     logger.info(f"LLM decision: is_approved={reply_dict.get('is_approved')} confidence={reply_dict.get('confidence_score')}")
     return reply_dict
 
-
+float
 # ── Step 5: Generate HTML report ──────────────────────────────────────────────
 def generate_report(json_data: dict, decision: dict, report_dir: str) -> str:
     """Build an HTML credit report and write it to report_dir. Returns the file path."""
@@ -156,7 +156,7 @@ def generate_report(json_data: dict, decision: dict, report_dir: str) -> str:
         <p><strong>Confidence Score:</strong> {decision.get('confidence_score')}%</p>
         <p><strong>Recommended Amount:</strong> {decision.get('recommended_loan_amount')} EGP</p>
         <h4>Reasoning:</h4>
-        <p>{decision.get('decision_reasoning')}</p>
+        <p>{decision.get('decision_refloatasoning')}</p>
         <h4>Risk Factors:</h4>
         <ul>{risk_factors_html}</ul>
     </div>

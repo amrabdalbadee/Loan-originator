@@ -20,13 +20,23 @@ CREATE TABLE IF NOT EXISTS documents (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Table to store text chunks with their vector embeddings
-CREATE TABLE IF NOT EXISTS document_chunks (
+-- Table to store policy text chunks with their vector embeddings
+CREATE TABLE IF NOT EXISTS policy_chunks (
     id SERIAL PRIMARY KEY,
     document_id INTEGER REFERENCES documents(id) ON DELETE CASCADE,
     chunk_index INTEGER NOT NULL,
     page_number INTEGER,
     content TEXT NOT NULL,
     embedding vector(3072),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Table to store user-uploaded text chunks (raw text only, no embeddings)
+CREATE TABLE IF NOT EXISTS user_documents (
+    id SERIAL PRIMARY KEY,
+    document_id INTEGER REFERENCES documents(id) ON DELETE CASCADE,
+    chunk_index INTEGER NOT NULL,
+    page_number INTEGER,
+    content TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT NOW()
 );

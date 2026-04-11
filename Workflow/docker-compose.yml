@@ -1,19 +1,21 @@
 services:
+
+  # ── Database ────────────────────────────────────────────────────────────────
   pg_vector:
     image: ankane/pgvector:latest
     container_name: pgvector
     restart: always
     environment:
-      POSTGRES_USER: ${VECTOR_DB_USER:-rfi_user}
+      POSTGRES_USER:     ${VECTOR_DB_USER:-rfi_user}
       POSTGRES_PASSWORD: ${VECTOR_DB_PASSWORD:-rfi_user}
-      POSTGRES_DB: ${VECTOR_DB_NAME:-rfi_db}
+      POSTGRES_DB:       ${VECTOR_DB_NAME:-rfi_db}
     ports:
       - "5434:5432"
     volumes:
       - unified_db_data:/var/lib/postgresql/data
-      - ./init-vectordb.sql:/docker-entrypoint-initdb.d/01-init-vectordb.sql
+      - ./backend/init-vectordb.sql:/docker-entrypoint-initdb.d/01-init-vectordb.sql
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${VECTOR_DB_USER:-rfi_user} -d ${VECTOR_DB_NAME:-rfi_db}" ]
+      test: ["CMD-SHELL", "pg_isready -U ${VECTOR_DB_USER:-rfi_user} -d ${VECTOR_DB_NAME:-rfi_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -24,12 +26,73 @@ services:
     container_name: pgadmin
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_EMAIL:    admin@admin.com
       PGADMIN_DEFAULT_PASSWORD: admin
     ports:
       - "5050:80"
     depends_on:
       - pg_vector
+
+  # ── Vector Service ──────────────────────────────────────────────────────────
+  vector_service:
+    build:
+      context: ./backend/vector_service
+    container_name: vector_service
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Override DB connection to use internal Docker networking
+      VECTOR_DB_HOST: pg_vector
+      VECTOR_DB_PORT: "5432"
+    ports:
+      - "8001:8001"
+    depends_on:
+      pg_vector:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── AI Service ──────────────────────────────────────────────────────────────
+  ai_service:
+    build:
+      context: ./backend/ai_service
+    container_name: ai_service
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      VECTOR_SERVICE_URL: http://vector_service:8001
+      REPORT_DIR:         /tmp/reports
+    ports:
+      - "8000:8000"
+    depends_on:
+      - vector_service
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── Frontend ────────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+    container_name: frontend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      AI_SERVICE_URL: http://localhost:8000
+    ports:
+      - "8501:8501"
+    depends_on:
+      - ai_service
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   unified_db_data:

@@ -6,16 +6,16 @@ services:
     container_name: pgvector
     restart: always
     environment:
-      POSTGRES_USER:     ${VECTOR_DB_USER:-rfi_user}
+      POSTGRES_USER: ${VECTOR_DB_USER:-rfi_user}
       POSTGRES_PASSWORD: ${VECTOR_DB_PASSWORD:-rfi_user}
-      POSTGRES_DB:       ${VECTOR_DB_NAME:-rfi_db}
+      POSTGRES_DB: ${VECTOR_DB_NAME:-rfi_db}
     ports:
       - "5434:5432"
     volumes:
       - unified_db_data:/var/lib/postgresql/data
       - ./backend/init-vectordb.sql:/docker-entrypoint-initdb.d/01-init-vectordb.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${VECTOR_DB_USER:-rfi_user} -d ${VECTOR_DB_NAME:-rfi_db}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${VECTOR_DB_USER:-rfi_user} -d ${VECTOR_DB_NAME:-rfi_db}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -26,7 +26,7 @@ services:
     container_name: pgadmin
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL:    admin@admin.com
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
       PGADMIN_DEFAULT_PASSWORD: admin
     ports:
       - "5050:80"
@@ -39,11 +39,12 @@ services:
       context: ./backend/vector_service
     container_name: vector_service
     restart: unless-stopped
-    env_file: .env
     environment:
       # Override DB connection to use internal Docker networking
       VECTOR_DB_HOST: pg_vector
       VECTOR_DB_PORT: "5432"
+      # Set in shell or Workflow/.env (Compose loads .env for ${...} substitution)
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:?Set GOOGLE_API_KEY in Workflow/.env or export it}
     ports:
       - "8001:8001"
     volumes:
@@ -63,10 +64,11 @@ services:
       context: ./backend/ai_service
     container_name: ai_service
     restart: unless-stopped
-    env_file: .env
     environment:
       VECTOR_SERVICE_URL: http://vector_service:8001
-      REPORT_DIR:         /tmp/reports
+      REPORT_DIR: /tmp/reports
+      OLLAMA_URL: ${OLLAMA_URL:-http://172.24.77.77:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:e4b}
     ports:
       - "8000:8000"
     depends_on:
@@ -83,7 +85,6 @@ services:
       context: ./frontend
     container_name: frontend
     restart: unless-stopped
-    env_file: .env
     environment:
       AI_SERVICE_INTERNAL_URL: http://ai_service:8000
       AI_SERVICE_EXTERNAL_URL: http://localhost:8000
@@ -104,9 +105,6 @@ services:
       dockerfile: Workflow/backend/id_extractor/Dockerfile
     container_name: id_extractor_service
     restart: unless-stopped
-    env_file: .env
-    environment:
-      # Optional environment vars
     ports:
       - "8002:8002"
     depends_on:

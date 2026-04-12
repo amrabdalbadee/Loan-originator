@@ -4,4 +4,8 @@ python-multipart
 Pillow
 requests
 torch
-
+torchvision
+transformers
+accelerate
+qwen-vl-utils
+numpy

@@ -70,7 +70,7 @@ services:
       OLLAMA_URL: ${OLLAMA_URL:-http://172.24.77.77:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:e4b}
     ports:
-      - "8000:8000"
+      - "8005:8000"
     depends_on:
       - vector_service
     logging:
@@ -87,7 +87,7 @@ services:
     restart: unless-stopped
     environment:
       AI_SERVICE_INTERNAL_URL: http://ai_service:8000
-      AI_SERVICE_EXTERNAL_URL: http://localhost:8000
+      AI_SERVICE_EXTERNAL_URL: http://localhost:8005
     ports:
       - "8501:8501"
     depends_on:
@@ -105,8 +105,20 @@ services:
       dockerfile: Workflow/backend/id_extractor/Dockerfile
     container_name: id_extractor_service
     restart: unless-stopped
+    environment:
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
     ports:
       - "8002:8002"
+    volumes:
+      - /home/amr/.cache/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct:/root/.cache/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
     depends_on:
       - ai_service
     logging:

@@ -6,6 +6,8 @@ import sys
 import json
 from PIL import Image
 from datetime import datetime
+#from extractor import EgyptianIDExtractor, PassportExtractor
+
 
 # Add project root to sys.path to allow imports from src
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
@@ -78,7 +80,10 @@ async def extract_identity(
         return JSONResponse(content=data_dict)
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        error_msg = f"{str(e)}\n{traceback.format_exc()}"
+        print(error_msg, file=sys.stderr)
+        raise HTTPException(status_code=500, detail=error_msg)
     finally:
         for path in [tmp_front_path, tmp_back_path, tmp_passport_path]:
             if path and os.path.exists(path):

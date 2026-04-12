@@ -211,3 +211,52 @@ if submitted:
             url=report_url,
             use_container_width=True,
         )
+
+st.markdown("---")
+st.subheader("✍️ Step 4: Signature Verification")
+st.markdown("Upload a document to verify its signatures against the stored reference.")
+
+doc_sig_file = st.file_uploader("Upload Document for Signature Extraction", type=['jpg', 'jpeg', 'png'], key="doc_sig")
+
+if st.button("Verify Signature", type="primary", use_container_width=True):
+    if doc_sig_file:
+        with st.spinner("✍️ Verifying signatures..."):
+            try:
+                SIGNATURE_SERVICE_URL = os.getenv("SIGNATURE_SERVICE_URL", "http://signature_service:8003")
+                files = {
+                    "document": (doc_sig_file.name, doc_sig_file.getvalue(), doc_sig_file.type)
+                }
+                # Hardcoded threshold as requested
+                data = {"threshold": 0.85}
+                resp = requests.post(f"{SIGNATURE_SERVICE_URL}/verify", files=files, data=data)
+                resp.raise_for_status()
+                result = resp.json()
+                
+                if result.get("status") == "success":
+                    detections = result.get("detections", [])
+                    if not detections:
+                        st.warning("No signatures detected in the document.")
+                    else:
+                        st.success(f"Detections completed. Found {len(detections)} signature(s).")
+                        
+                        cols = st.columns(len(detections) if len(detections) < 4 else 4)
+                        for i, det in enumerate(detections):
+                            with cols[i % 4]:
+                                import base64
+                                from PIL import Image
+                                import io
+                                
+                                # Decode the base64 crop
+                                img_data = base64.b64decode(det['crop_base64'])
+                                img = Image.open(io.BytesIO(img_data))
+                                
+                                st.image(img, caption=f"Detection {i+1}")
+                                status = "✅ GENUINE" if det['is_genuine'] else "❌ FORGED"
+                                st.markdown(f"**{status}**")
+                                st.markdown(f"Score: `{det['similarity']:.4f}`")
+                else:
+                    st.error("Signature verification failed.")
+            except Exception as e:
+                st.error(f"Error during signature verification: {e}")
+    else:
+        st.warning("Please upload a document to verify.")

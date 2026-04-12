@@ -88,10 +88,13 @@ services:
     environment:
       AI_SERVICE_INTERNAL_URL: http://ai_service:8000
       AI_SERVICE_EXTERNAL_URL: http://localhost:8005
+      ID_EXTRACTOR_URL: http://id_extractor_service:8002
+      SIGNATURE_SERVICE_URL: http://signature_service:8003
     ports:
       - "8501:8501"
     depends_on:
       - ai_service
+      - signature_service
     logging:
       driver: json-file
       options:
@@ -121,6 +124,22 @@ services:
               capabilities: [ gpu ]
     depends_on:
       - ai_service
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── Signature Service ───────────────────────────────────────────────────────
+  signature_service:
+    build:
+      context: ./backend/signature
+    container_name: signature_service
+    restart: unless-stopped
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./backend/signature/reference:/app/reference
     logging:
       driver: json-file
       options:

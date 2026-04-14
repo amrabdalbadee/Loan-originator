@@ -2,6 +2,9 @@ import streamlit as st
 import requests
 import json
 import os
+import base64
+import io
+from PIL import Image
 
 # Internal URL: Used by the Python server to talk to the AI service container
 AI_SERVICE_INTERNAL_URL = os.getenv("AI_SERVICE_INTERNAL_URL", "http://ai_service:8000")
@@ -9,6 +12,8 @@ AI_SERVICE_INTERNAL_URL = os.getenv("AI_SERVICE_INTERNAL_URL", "http://ai_servic
 AI_SERVICE_EXTERNAL_URL = os.getenv("AI_SERVICE_EXTERNAL_URL", "http://localhost:8000")
 # ID Extractor URL
 ID_EXTRACTOR_URL = os.getenv("ID_EXTRACTOR_URL", "http://id_extractor_service:8002")
+# Signature Service URL
+SIGNATURE_SERVICE_URL = os.getenv("SIGNATURE_SERVICE_URL", "http://signature_service:8003")
 
 st.set_page_config(page_title="NBE Loan Application", page_icon="🏦", layout="centered")
 st.title("🏦 NBE Loan Application Form")
@@ -18,6 +23,8 @@ if 'full_name' not in st.session_state:
     st.session_state.full_name = ""
 if 'national_id' not in st.session_state:
     st.session_state.national_id = ""
+if 'signature_verified' not in st.session_state:
+    st.session_state.signature_verified = False
 
 st.subheader("🪪 Step 1: Identity Extraction (Optional)")
 st.markdown("Upload your National ID or Passport to automatically pre-fill your application.")
@@ -94,7 +101,62 @@ else:
             st.warning("Please upload the passport image.")
 
 st.markdown("---")
+st.subheader("✍️ Step 2: Signature Verification")
+st.markdown("Upload a document to verify its signatures against the stored reference.")
 
+doc_sig_file = st.file_uploader("Upload Document for Signature Extraction", type=['jpg', 'jpeg', 'png'], key="doc_sig")
+
+if st.button("Verify Signature", type="primary", use_container_width=True):
+    if doc_sig_file:
+        with st.spinner("✍️ Verifying signatures..."):
+            try:
+                files = {
+                    "document": (doc_sig_file.name, doc_sig_file.getvalue(), doc_sig_file.type)
+                }
+                data = {"threshold": 0.85}
+                resp = requests.post(f"{SIGNATURE_SERVICE_URL}/verify", files=files, data=data)
+                resp.raise_for_status()
+                result = resp.json()
+                
+                if result.get("status") == "success":
+                    detections = result.get("detections", [])
+                    if not detections:
+                        st.warning("No signatures detected in the document.")
+                        st.session_state.signature_verified = False
+                    else:
+                        st.success(f"Detections completed. Found {len(detections)} signature(s).")
+                        
+                        # Verify if all detected signatures are genuine
+                        all_genuine = all(det.get('is_genuine', False) for det in detections)
+                        if all_genuine:
+                            st.session_state.signature_verified = True
+                            st.info("✅ Signature(s) verified! You can now proceed to Step 3.")
+                        else:
+                            st.session_state.signature_verified = False
+                            st.error("❌ One or more signatures appear to be forged. Verification failed.")
+                        
+                        cols = st.columns(len(detections) if len(detections) < 4 else 4)
+                        for i, det in enumerate(detections):
+                            with cols[i % 4]:
+                                # Decode the base64 crop
+                                img_data = base64.b64decode(det['crop_base64'])
+                                img = Image.open(io.BytesIO(img_data))
+                                
+                                st.image(img, caption=f"Detection {i+1}")
+                                status = "✅ GENUINE" if det['is_genuine'] else "❌ FORGED"
+                                st.markdown(f"**{status}**")
+                                st.markdown(f"Score: `{det['similarity']:.4f}`")
+                else:
+                    st.error("Signature verification failed.")
+                    st.session_state.signature_verified = False
+            except Exception as e:
+                st.error(f"Error during signature verification: {e}")
+                st.session_state.signature_verified = False
+    else:
+        st.warning("Please upload a document to verify.")
+
+st.markdown("---")
+st.subheader("📝 Step 3: Loan Application")
 with st.form("loan_form"):
     st.subheader("👤 Personal Information")
 
@@ -143,6 +205,10 @@ with st.form("loan_form"):
     submitted = st.form_submit_button("Evaluate Application", type="primary", use_container_width=True)
 
 if submitted:
+    if not st.session_state.get('signature_verified', False):
+        st.error("⚠️ Signature not verified! Please complete Step 2: Signature Verification before evaluating the application.")
+        st.stop()
+
     if not income_proof_file and not utility_bill_file:
         st.warning("Please upload at least one PDF document to proceed.")
         st.stop()
@@ -213,50 +279,3 @@ if submitted:
         )
 
 st.markdown("---")
-st.subheader("✍️ Step 4: Signature Verification")
-st.markdown("Upload a document to verify its signatures against the stored reference.")
-
-doc_sig_file = st.file_uploader("Upload Document for Signature Extraction", type=['jpg', 'jpeg', 'png'], key="doc_sig")
-
-if st.button("Verify Signature", type="primary", use_container_width=True):
-    if doc_sig_file:
-        with st.spinner("✍️ Verifying signatures..."):
-            try:
-                SIGNATURE_SERVICE_URL = os.getenv("SIGNATURE_SERVICE_URL", "http://signature_service:8003")
-                files = {
-                    "document": (doc_sig_file.name, doc_sig_file.getvalue(), doc_sig_file.type)
-                }
-                # Hardcoded threshold as requested
-                data = {"threshold": 0.85}
-                resp = requests.post(f"{SIGNATURE_SERVICE_URL}/verify", files=files, data=data)
-                resp.raise_for_status()
-                result = resp.json()
-                
-                if result.get("status") == "success":
-                    detections = result.get("detections", [])
-                    if not detections:
-                        st.warning("No signatures detected in the document.")
-                    else:
-                        st.success(f"Detections completed. Found {len(detections)} signature(s).")
-                        
-                        cols = st.columns(len(detections) if len(detections) < 4 else 4)
-                        for i, det in enumerate(detections):
-                            with cols[i % 4]:
-                                import base64
-                                from PIL import Image
-                                import io
-                                
-                                # Decode the base64 crop
-                                img_data = base64.b64decode(det['crop_base64'])
-                                img = Image.open(io.BytesIO(img_data))
-                                
-                                st.image(img, caption=f"Detection {i+1}")
-                                status = "✅ GENUINE" if det['is_genuine'] else "❌ FORGED"
-                                st.markdown(f"**{status}**")
-                                st.markdown(f"Score: `{det['similarity']:.4f}`")
-                else:
-                    st.error("Signature verification failed.")
-            except Exception as e:
-                st.error(f"Error during signature verification: {e}")
-    else:
-        st.warning("Please upload a document to verify.")

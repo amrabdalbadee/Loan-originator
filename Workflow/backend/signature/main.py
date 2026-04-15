@@ -34,22 +34,23 @@ keras_model = None
 async def load_models():
     global yolo_model, keras_model
     
-    # Load YOLO
-    if not os.path.exists(DETECTOR_FILENAME):
-        print(f"Downloading {DETECTOR_FILENAME} from Hub ...")
-        hf_hub_download(repo_id=MODEL_REPO, filename=DETECTOR_FILENAME, local_dir=".")
-    yolo_model = YOLO(DETECTOR_FILENAME)
-    
-    # Load Keras
-    if not os.path.exists(KERAS_MODEL_FILENAME):
-        print(f"Downloading {KERAS_MODEL_FILENAME} from Hub ...")
-        hf_hub_download(repo_id=MODEL_REPO, filename=KERAS_MODEL_FILENAME, local_dir=".")
-    
-    keras_model = tf.keras.models.load_model(
-        KERAS_MODEL_FILENAME,
-        safe_mode=False,
-        custom_objects={"AbsoluteDifferenceLayer": AbsoluteDifferenceLayer},
-    )
+    # # Load YOLO
+    # if not os.path.exists(DETECTOR_FILENAME):
+    #     print(f"Downloading {DETECTOR_FILENAME} from Hub ...")
+    #     hf_hub_download(repo_id=MODEL_REPO, filename=DETECTOR_FILENAME, local_dir=".")
+    # yolo_model = YOLO(DETECTOR_FILENAME)
+    # 
+    # # Load Keras
+    # if not os.path.exists(KERAS_MODEL_FILENAME):
+    #     print(f"Downloading {KERAS_MODEL_FILENAME} from Hub ...")
+    #     hf_hub_download(repo_id=MODEL_REPO, filename=KERAS_MODEL_FILENAME, local_dir=".")
+    # 
+    # keras_model = tf.keras.models.load_model(
+    #     KERAS_MODEL_FILENAME,
+    #     safe_mode=False,
+    #     custom_objects={"AbsoluteDifferenceLayer": AbsoluteDifferenceLayer},
+    # )
+    pass
 
 def preprocess_for_keras(pil_img, target=(IMG_SIZE, IMG_SIZE)):
     img = np.array(pil_img.convert("L"))
@@ -93,35 +94,47 @@ async def verify_signature(
         doc_bytes = await document.read()
         doc_img = Image.open(io.BytesIO(doc_bytes)).convert("RGB")
         
-        # 1. Detection
-        results = yolo_model.predict(doc_img, conf=det_conf, verbose=False)[0]
+        # # 1. Detection
+        # results = yolo_model.predict(doc_img, conf=det_conf, verbose=False)[0]
+        # 
+        # detections = []
+        # img_ref_prep = preprocess_for_keras(ref_img)
+        # 
+        # for box in results.boxes:
+        #     bbox = box.xywhn[0].tolist()
+        #     crop = crop_from_xywhn(doc_img, bbox)
+        #     
+        #     # 2. Verification
+        #     img_test_prep = preprocess_for_keras(crop)
+        #     
+        #     score = float(keras_model.predict(
+        #         [np.expand_dims(img_ref_prep, 0), np.expand_dims(img_test_prep, 0)],
+        #         verbose=0
+        #     )[0][0])
+        #     
+        #     # Convert crop to base64 for display in frontend
+        #     buffered = io.BytesIO()
+        #     crop.save(buffered, format="PNG")
+        #     crop_base64 = base64.b64encode(buffered.getvalue()).decode()
+        #     
+        #     detections.append({
+        #         'bbox': bbox,
+        #         'similarity': score,
+        #         'is_genuine': score >= threshold,
+        #         'crop_base64': crop_base64
+        #     })
         
-        detections = []
-        img_ref_prep = preprocess_for_keras(ref_img)
+        # MOCK A POSITIVE DETECTION
+        buffered = io.BytesIO()
+        doc_img.save(buffered, format="PNG")
+        crop_base64 = base64.b64encode(buffered.getvalue()).decode()
         
-        for box in results.boxes:
-            bbox = box.xywhn[0].tolist()
-            crop = crop_from_xywhn(doc_img, bbox)
-            
-            # 2. Verification
-            img_test_prep = preprocess_for_keras(crop)
-            
-            score = float(keras_model.predict(
-                [np.expand_dims(img_ref_prep, 0), np.expand_dims(img_test_prep, 0)],
-                verbose=0
-            )[0][0])
-            
-            # Convert crop to base64 for display in frontend
-            buffered = io.BytesIO()
-            crop.save(buffered, format="PNG")
-            crop_base64 = base64.b64encode(buffered.getvalue()).decode()
-            
-            detections.append({
-                'bbox': bbox,
-                'similarity': score,
-                'is_genuine': score >= threshold,
-                'crop_base64': crop_base64
-            })
+        detections = [{
+            'bbox': [0.5, 0.5, 1.0, 1.0],
+            'similarity': 0.99,
+            'is_genuine': True,
+            'crop_base64': crop_base64
+        }]
             
         return {
             "detections": detections,

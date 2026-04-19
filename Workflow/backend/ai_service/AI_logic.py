@@ -67,7 +67,7 @@ def get_policy_context(json_data: dict, top_k: int = 7) -> str:
 
 # ── Step 4: Call Ollama LLM ───────────────────────────────────────────────────
 def call_llm(json_data: dict, user_doc_context: str, policy_context: str) -> dict:
-    em_prompt = """You are a senior credit analyst at NBE (National Bank of Egypt).
+    system_prompt = """You are a senior credit analyst at NBE (National Bank of Egypt).
 
 Your task is to evaluate a loan application for compliance and creditworthiness.
 You will receive three distinct inputs:

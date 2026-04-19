@@ -7,7 +7,6 @@ from fastapi.responses import JSONResponse
 from PIL import Image
 import io
 import base64
-from ultralytics import YOLO
 from huggingface_hub import hf_hub_download
 
 # ── Custom Layer ─────────────────────────────────────────────────────────────
@@ -21,57 +20,38 @@ class AbsoluteDifferenceLayer(tf.keras.layers.Layer):
 # ── Constants & Config ────────────────────────────────────────────────────────
 IMG_SIZE = 128
 MODEL_REPO = "Mels22/Signature-Detection-Verification"
-DETECTOR_FILENAME = "detector_yolo_1cls.pt"
 KERAS_MODEL_FILENAME = "siamese_signature_model.keras"
 
 app = FastAPI(title="Signature Verification Service")
 
 # Global models
-yolo_model = None
 keras_model = None
 
 @app.on_event("startup")
 async def load_models():
-    global yolo_model, keras_model
+    global keras_model
     
-    # # Load YOLO
-    # if not os.path.exists(DETECTOR_FILENAME):
-    #     print(f"Downloading {DETECTOR_FILENAME} from Hub ...")
-    #     hf_hub_download(repo_id=MODEL_REPO, filename=DETECTOR_FILENAME, local_dir=".")
-    # yolo_model = YOLO(DETECTOR_FILENAME)
-    # 
-    # # Load Keras
-    # if not os.path.exists(KERAS_MODEL_FILENAME):
-    #     print(f"Downloading {KERAS_MODEL_FILENAME} from Hub ...")
-    #     hf_hub_download(repo_id=MODEL_REPO, filename=KERAS_MODEL_FILENAME, local_dir=".")
-    # 
-    # keras_model = tf.keras.models.load_model(
-    #     KERAS_MODEL_FILENAME,
-    #     safe_mode=False,
-    #     custom_objects={"AbsoluteDifferenceLayer": AbsoluteDifferenceLayer},
-    # )
-    pass
+    # Load Keras
+    if not os.path.exists(KERAS_MODEL_FILENAME):
+        print(f"Downloading {KERAS_MODEL_FILENAME} from Hub ...")
+        hf_hub_download(repo_id=MODEL_REPO, filename=KERAS_MODEL_FILENAME, local_dir=".")
+    
+    keras_model = tf.keras.models.load_model(
+        KERAS_MODEL_FILENAME,
+        safe_mode=False,
+        custom_objects={"AbsoluteDifferenceLayer": AbsoluteDifferenceLayer},
+    )
 
 def preprocess_for_keras(pil_img, target=(IMG_SIZE, IMG_SIZE)):
     img = np.array(pil_img.convert("L"))
     img = cv2.resize(img, target).astype("float32") / 255.0
     return np.expand_dims(img, axis=-1)
 
-def crop_from_xywhn(image_pil, xywhn_box, padding=10):
-    W, H = image_pil.size
-    xc, yc, w, h = xywhn_box
-    x1 = max(int((xc - w / 2) * W) - padding, 0)
-    y1 = max(int((yc - h / 2) * H) - padding, 0)
-    x2 = min(int((xc + w / 2) * W) + padding, W)
-    y2 = min(int((yc + h / 2) * H) + padding, H)
-    return image_pil.crop((x1, y1, x2, y2))
-
 @app.post("/verify")
 async def verify_signature(
     document: UploadFile = File(...),
     reference: UploadFile = None,
-    threshold: float = Form(0.85),
-    det_conf: float = Form(0.4)
+    threshold: float = Form(0.85)
 ):
     try:
         # Load reference image
@@ -94,45 +74,24 @@ async def verify_signature(
         doc_bytes = await document.read()
         doc_img = Image.open(io.BytesIO(doc_bytes)).convert("RGB")
         
-        # # 1. Detection
-        # results = yolo_model.predict(doc_img, conf=det_conf, verbose=False)[0]
-        # 
-        # detections = []
-        # img_ref_prep = preprocess_for_keras(ref_img)
-        # 
-        # for box in results.boxes:
-        #     bbox = box.xywhn[0].tolist()
-        #     crop = crop_from_xywhn(doc_img, bbox)
-        #     
-        #     # 2. Verification
-        #     img_test_prep = preprocess_for_keras(crop)
-        #     
-        #     score = float(keras_model.predict(
-        #         [np.expand_dims(img_ref_prep, 0), np.expand_dims(img_test_prep, 0)],
-        #         verbose=0
-        #     )[0][0])
-        #     
-        #     # Convert crop to base64 for display in frontend
-        #     buffered = io.BytesIO()
-        #     crop.save(buffered, format="PNG")
-        #     crop_base64 = base64.b64encode(buffered.getvalue()).decode()
-        #     
-        #     detections.append({
-        #         'bbox': bbox,
-        #         'similarity': score,
-        #         'is_genuine': score >= threshold,
-        #         'crop_base64': crop_base64
-        #     })
+        # 1. Verification (Directly on document vs reference)
+        img_ref_prep = preprocess_for_keras(ref_img)
+        img_test_prep = preprocess_for_keras(doc_img)
         
-        # MOCK A POSITIVE DETECTION
+        score = float(keras_model.predict(
+            [np.expand_dims(img_ref_prep, 0), np.expand_dims(img_test_prep, 0)],
+            verbose=0
+        )[0][0])
+        
+        # Convert document to base64 for display in frontend
         buffered = io.BytesIO()
         doc_img.save(buffered, format="PNG")
         crop_base64 = base64.b64encode(buffered.getvalue()).decode()
         
         detections = [{
-            'bbox': [0.5, 0.5, 1.0, 1.0],
-            'similarity': 0.99,
-            'is_genuine': True,
+            'bbox': [0.5, 0.5, 1.0, 1.0], # Full image mock bbox
+            'similarity': score,
+            'is_genuine': score >= threshold,
             'crop_base64': crop_base64
         }]
             

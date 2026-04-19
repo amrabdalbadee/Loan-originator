@@ -67,7 +67,7 @@ def get_policy_context(json_data: dict, top_k: int = 7) -> str:
 
 # ── Step 4: Call Ollama LLM ───────────────────────────────────────────────────
 def call_llm(json_data: dict, user_doc_context: str, policy_context: str) -> dict:
-    system_prompt = """You are a senior credit analyst at NBE (National Bank of Egypt).
+    em_prompt = """You are a senior credit analyst at NBE (National Bank of Egypt).
 
 Your task is to evaluate a loan application for compliance and creditworthiness.
 You will receive three distinct inputs:
@@ -75,7 +75,7 @@ You will receive three distinct inputs:
 1. APPLICANT FORM DATA — structured JSON submitted by the applicant.
 2. APPLICANT DOCUMENTS — raw extracted text from the applicant's uploaded Income Proof and Utility Bill PDFs.
 3. BANK POLICY — the most relevant NBE lending policy rules retrieved for this application type.
-
+syst
 Your job:
 - Verify the information in the form data is consistent with the uploaded documents.
 - Check the application against the retrieved bank policy rules.

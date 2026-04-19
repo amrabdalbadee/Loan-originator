@@ -91,7 +91,7 @@ services:
       ID_EXTRACTOR_URL: http://id_extractor_service:8002
       SIGNATURE_SERVICE_URL: http://signature_service:8003
     ports:
-      - "8501:8501"
+      - "8503:8501"
     depends_on:
       - ai_service
       - signature_service
